@@ -10,7 +10,7 @@ from typing import Optional, Union, Dict, List, Tuple
 
 class Ascii2FactorioBlueprint:
     def __init__(self, **kwargs) -> None:
-        self.step: int = kwargs.pop("size")
+        self.size: int = kwargs.pop("size")
         self.ascii_name: str = kwargs.pop("name")
         self.verbose: bool = kwargs.pop("verbose")
         self.log_level: int = kwargs.pop("log_level")
@@ -129,14 +129,15 @@ class Ascii2FactorioBlueprint:
             mapped_name = charmap[char]
             if mapped_name == "new_line":
                 col = 0
-                line += step
+                line += step * 2
                 continue
             elif mapped_name == "tab":
                 col += 2
+                continue
 
             self.log(f"({col}, {line}) '{mapped_name}' {char}", _type="debug")
             for x in range(step):
-                for y in range(step):
+                for y in range(step * 2):
                     bp.add_data(name=mapped_name, pos=Vector2(col+x, line+y))
             col += step
 
@@ -160,7 +161,7 @@ class Ascii2FactorioBlueprint:
             name=self.ascii_name, 
             text=self.ascii_input, 
             charmap=charmap, 
-            step=self.step
+            step=self.size
         )
         if not mapped_ascii:
             self.log("No ascii map!", _type="error")
