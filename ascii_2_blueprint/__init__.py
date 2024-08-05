@@ -1,4 +1,5 @@
 import os, zlib, json, click
+from itertools import cycle
 from base64 import b64encode
 from rich.prompt import Prompt
 from rich.console import Console
@@ -12,15 +13,17 @@ class Ascii2FactorioBlueprint:
         self.step: int = kwargs.pop("size")
         self.ascii_name: str = kwargs.pop("name")
         self.verbose: bool = kwargs.pop("verbose")
-        self.blocks: List = kwargs.pop("block_list")
         self.log_level: int = kwargs.pop("log_level")
         self.ascii_input: str = kwargs.pop("ascii_input")
         self.charmap: Optional[Dict] = kwargs.pop("charmap")
-        self.block_priority: str = kwargs.pop("block_priority")
         self.normalize: bool = kwargs.pop("homoglyph_normalize")
+        self.block_priority: List = kwargs.pop("block_priority")
         self.remap_similar_chars: bool = kwargs.pop("remap_similar_chars")
         self.remap_chars_agressiveness: int = kwargs.pop("remap_chars_agressiveness")
         self.console = Console()
+
+        if kwargs.pop("using_default_blocks"):
+            self.log(f"No block_priority passed, using default block priorities: {self.block_priority}", _type="warning")
     
     @staticmethod
     def compress_and_encode(data: Dict) -> str:
@@ -69,8 +72,8 @@ class Ascii2FactorioBlueprint:
     def map_chars(
         self,
         ascii_input: str, 
-        block_list: List, 
-        block_priority: Optional[str] = None, 
+        block_priority: List,
+        charmap: Optional[Dict], 
         remap_similar_chars: bool = False, 
         remap_chars_agressiveness: int = 5,
         **kwargs
@@ -78,8 +81,7 @@ class Ascii2FactorioBlueprint:
         """
         Map chars to item in block map.
         ascii_input: ascii input to map.
-        block_list: list of blocks to map to.
-        block_priority: block to map to char that appears with the highest frequency.
+        block_priority: List of blocks to map to based on char frequency.
         remap_similar_chars: Remap character with previously seen character if it is "close" in unicode.
         remap_chars_range (dangerous): limit how "close" of a match we replace.
         """
@@ -89,17 +91,12 @@ class Ascii2FactorioBlueprint:
             "\t": "tab",
             "\n": "new_line",
             " ": None,
-        }
+        } if not charmap else charmap
         unique_chars = set(ascii_input)
-        blocks = block_list.copy()
+        blocks = cycle(block_priority)
+        sorted_by_frequency = sorted([(i, ascii_input.count(i)) for i in unique_chars], key=lambda x: x[1], reverse=True)
 
-        if block_priority:
-            priority = blocks.pop(blocks.index(block_priority))
-            char, freqency = max([(i, ascii_input.count(i)) for i in unique_chars], key=lambda x: x[1])
-            self.log(f"{char} appears {freqency} times, setting to: '{priority}'", _type="info")
-            charmap.update({char: priority})
-
-        for char in unique_chars:
+        for char, count in sorted_by_frequency:
             if char in charmap.keys():
                 continue
             if remap_similar_chars:
@@ -113,13 +110,7 @@ class Ascii2FactorioBlueprint:
                 if closest_match:
                     charmap.update({char: charmap[chr(closest_match)]})
                     continue
-            
-            try:
-                charmap.update({char: blocks.pop(0)})
-            except IndexError:
-                self.log("Ran out of blocks to use in charmap!", _type="error")
-                return None
-
+            charmap.update({char: next(blocks)})
         return charmap
 
     def map_ascii(
@@ -154,10 +145,10 @@ class Ascii2FactorioBlueprint:
     def convert(self) -> Tuple[Optional[str], bool]:        
         if self.normalize:
             self.ascii_input = self.homoglyph_normalize(self.ascii_input)
-        charmap = self.charmap or self.map_chars(
+        charmap = self.map_chars(
             ascii_input=self.ascii_input, 
-            block_list=self.blocks, 
             block_priority=self.block_priority,
+            charmap=self.charmap,
             remap_similar_chars=self.remap_similar_chars,
             remap_chars_agressiveness=self.remap_chars_agressiveness
         )
@@ -198,15 +189,14 @@ def get_input() -> str:
 @click.command()
 @click.option("--input", "-i", default=None, help="Input file to convert to blueprint.")
 @click.option("--output", "-o", default=None, help="Output file to write blueprint (outputs to terminal if not set).")
-@click.option("--blocklist-file", "-blocklist", default="./default_blocks.txt", help="Text file which contains list of allowed blocks")
-@click.option("--block-priority", "-priority", default=None, help="Block to map to char that appears with the highest frequency.")
-@click.option("--charmap-file", "-charmap", default=None, help="JSON file with character mappings.")
 @click.option("--name", "-n", default="unamed", help="Name of the blueprint.")
 @click.option("--size", "-s", default=4, help="Size of blueprint, lower this number if blueprint is too large.")
 @click.option("--verbose", "-v", default=False, help="Enable verbose output for more detailed logs.")
 @click.option("--log-level", "-log", default=3, help="Output log level (All logs = 4, Errors only = 1). Overriden by '--verbose'.")
+@click.option("--blockpriority-file", "-blockpriority", default=None, help="JSON file with blocks to map to chars that appears with the highest frequency.")
+@click.option("--charmap-file", "-charmap", default=None, help="JSON file with character mappings.")
 @click.option("--homoglyph_normalize", "-normalize", default=True, help="Attempts to remap characters to their first homoglyph (e.g 𝒒 -> q)")
-@click.option("--remap-similar-chars", "-remap", default=True, help="Remap character with previously seen character if it is 'close' in unicode.")
+@click.option("--remap-similar-chars", "-remap", default=False, help="Remap character with previously seen character if it is 'close' in unicode.")
 @click.option("--remap-chars-agressiveness", "-remap-magnitude", default=5, help="How agressive the remapping of characters is. (its recommended to not touch this setting)")
 def main(**kwargs):
     _input = kwargs.pop("input")
@@ -219,19 +209,24 @@ def main(**kwargs):
         raise ValueError("No valid input!")
     kwargs.update(ascii_input=ascii_input)
 
-    blocklist = kwargs.pop("blocklist_file")
-    if not blocklist:
-        raise ValueError("No blocklist passed!")
-    with open(blocklist, "r", encoding="utf-8") as f:
-        blocks = [line.strip() for line in f.readlines()]
-    kwargs.update(block_list=blocks)
+    using_default_blocks = False
+    blocks = kwargs.pop("blockpriority_file")
+    if blocks:
+        with open(blocks, "r", encoding="utf-8") as f:
+            blocks = json.load(f)
+    else:
+        blocks = [
+            "stone-path",
+            "hazard-concrete-right",
+            "hazard-concrete-right",
+            "concrete",
+            "hazard-concrete-left",
+            "hazard-concrete-left",
+        ]
+        using_default_blocks = True
 
-    priority = kwargs.pop("block_priority")
-    if not priority:
-        priority = blocks[0]
-    if priority not in blocks:
-        raise ValueError("Priority block does not exist in blocklist!")
-    kwargs.update(block_priority=priority)
+    kwargs.update(block_priority=blocks)
+    kwargs.update(using_default_blocks=using_default_blocks)
 
     charmap = kwargs.pop("charmap_file")
     if charmap:
