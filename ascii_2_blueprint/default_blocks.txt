@@ -1,0 +1,6 @@
+stone-path
+hazard-concrete-right
+hazard-concrete-right
+concrete
+hazard-concrete-left
+hazard-concrete-left
