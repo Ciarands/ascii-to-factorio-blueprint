@@ -7,7 +7,7 @@ Modes can be set by passing `--mode MODE_NAME` with the command.
 
 ---
 
-### Brail (Recommended):
+### Brail/Braille (Recommended):
 Good for high detail ascii art which uses the braille charset, if ascii uses only brail charset this will be the default choice.
 ```
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⢔⣒⠂⣀⣀⣤⣄⣀⠀⠀
