@@ -1,5 +1,5 @@
 from .vector2 import Vector2
-from typing import List, Dict, Tuple
+from typing import Set, List, Dict, Tuple
 
 class Icon:
     name: str
@@ -59,7 +59,7 @@ class Blueprint:
 
     def __init__(self, **kwargs) -> None:
         self.label = kwargs.pop("label", "unknown")
-        self.seen_icons: List[str] = []
+        self.used_positions: Set[Vector2] = set()
         self.entities: List[Dict] = []
         self.tiles: List[Dict] = []
         self.icons: List[Dict] = []
@@ -90,6 +90,11 @@ class Blueprint:
         }
 
     def add_data(self, name: str, pos: Vector2) -> None:
+        if pos in self.used_positions:
+            return
+
+        self.used_positions.add(pos)
+
         tile = Tile(
             name=name, 
             position=pos
