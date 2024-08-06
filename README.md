@@ -1,16 +1,6 @@
 # Ascii-2-Blueprint
 This project allows for converting any ascii into a factorio blueprint.
 
-## Installation
-Install from source:
-
-    $ python3 -m pip install .
-
-## Usage
-After installation you can use the cli by calling:
-
-    $ ascii-2-blueprint --help
-
 ## Modes
 Modes can be set by passing `--mode MODE_NAME` with the command. 
 *Test out your results in: https://fbe.teoxoy.com/*
@@ -75,6 +65,17 @@ Works for low detail blocky ascii art.
 #Image 1 - `-remap 10 --size 0.35`
 
 <img src="https://github.com/user-attachments/assets/6c097fc0-7ef4-4259-956a-c2ebecfcabd6" alt="trollface-blueprint" width="400"/>
+
+
+## Installation
+Install from source:
+
+    $ python3 -m pip install .
+
+## Usage
+After installation you can use the cli by calling:
+
+    $ ascii-2-blueprint --help
 
 ## Author
 Ciarán - [Ciarands](https://github.com/Ciarands)
