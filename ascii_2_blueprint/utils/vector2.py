@@ -9,6 +9,12 @@ class Vector2:
     def __mul__(self, vector):
         return Vector2(self.x * vector.x, self.y * vector.y)
 
+    def __add__(self, vector):
+        return Vector2(self.x + vector.x, self.y + vector.y)
+
+    def __repr__(self):
+        return f"Vector2({self.x},{self.y})"
+
     @property
     def as_dict(self):
         return {"x": self.x, "y": self.y}
